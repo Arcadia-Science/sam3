@@ -1,3 +1,5 @@
+> **Fork notice:** This is a fork of [facebookresearch/sam3](https://github.com/facebookresearch/sam3) with patches for macOS (MPS) compatibility. For the original project, see upstream.
+
 # SAM 3: Segment Anything with Concepts
 
 Meta Superintelligence Labs
