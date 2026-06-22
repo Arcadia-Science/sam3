@@ -532,11 +532,10 @@ class VideoTrackingMultiplex(nn.Module):
         if dummy:
             return torch.zeros(len(rel_pos_list), self.mem_dim, device=device)
 
+        from sam3.utils.device import to_device
+
         t_diff_max = max_abs_pos - 1 if max_abs_pos is not None else 1
-        pos_enc = (
-            torch.tensor(rel_pos_list).pin_memory().to(device=device, non_blocking=True)
-            / t_diff_max
-        )
+        pos_enc = to_device(torch.tensor(rel_pos_list), device) / t_diff_max
         if self.sincos_tpos_enc:
             tpos_dim = (
                 self.hidden_dim if self.proj_tpos_enc_in_obj_ptrs else self.mem_dim

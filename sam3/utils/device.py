@@ -69,3 +69,17 @@ def is_gpu_device(device: Union[torch.device, str]) -> bool:
     if isinstance(device, str):
         device = torch.device(device)
     return device.type in ("cuda", "mps")
+
+
+def to_device(tensor: torch.Tensor, device: Union[torch.device, str]) -> torch.Tensor:
+    """Move *tensor* to *device*, using a pinned-memory async copy on CUDA.
+
+    Pinned memory + ``non_blocking=True`` is a CUDA-only optimisation; on MPS
+    it raises a storage-device-mismatch error, and on CPU it is pointless.  For
+    non-CUDA targets we fall back to a plain blocking ``.to()``.
+    """
+    if isinstance(device, str):
+        device = torch.device(device)
+    if device.type == "cuda":
+        return tensor.pin_memory().to(device=device, non_blocking=True)
+    return tensor.to(device=device)

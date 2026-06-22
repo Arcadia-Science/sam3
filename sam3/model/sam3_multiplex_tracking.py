@@ -715,9 +715,9 @@ class Sam3MultiplexTracking(Sam3MultiplexBase):
 
             # slice those valid entries from the original outputs
             keep_idx = torch.nonzero(keep, as_tuple=True)[0]
-            keep_idx_gpu = keep_idx.pin_memory().to(
-                device=out_binary_masks.device, non_blocking=True
-            )
+            from sam3.utils.device import to_device
+
+            keep_idx_gpu = to_device(keep_idx, out_binary_masks.device)
 
             out_obj_ids = torch.index_select(out_obj_ids, 0, keep_idx)
             out_probs = torch.index_select(out_probs, 0, keep_idx)
@@ -1025,9 +1025,11 @@ class Sam3MultiplexTracking(Sam3MultiplexBase):
 
             # Apply non-overlapping constraints (per-frame operation)
             if out_masks.shape[0] > 1:
-                # Copy sam2_probs to CPU pinned memory then back to GPU for the operation
+                # Copy sam2_probs to CPU pinned memory then back to GPU for the operation.
+                # Pinned memory is a CUDA-only optimisation; skip it otherwise.
+                pin = torch.cuda.is_available()
                 out_sam2_probs_cpu = torch.empty(
-                    out_sam2_probs.shape, dtype=out_sam2_probs.dtype, pin_memory=True
+                    out_sam2_probs.shape, dtype=out_sam2_probs.dtype, pin_memory=pin
                 )
                 out_sam2_probs_cpu.copy_(out_sam2_probs, non_blocking=True)
                 out_masks = (
@@ -1101,25 +1103,27 @@ class Sam3MultiplexTracking(Sam3MultiplexBase):
         )
 
         if needs_buffer_init or needs_buffer_resize:
+            # Pinned memory is a CUDA-only optimisation; skip it otherwise.
+            pin = torch.cuda.is_available()
             self.buffer_cpu_batched = {
                 "out_obj_ids": torch.zeros(
                     batched_buffer_size,
                     dtype=torch.int64,
                     device="cpu",
-                    pin_memory=True,
+                    pin_memory=pin,
                 ),
                 "out_probs": torch.zeros(
                     batched_buffer_size,
                     dtype=torch.float32,
                     device="cpu",
-                    pin_memory=True,
+                    pin_memory=pin,
                 ),
                 "out_boxes_xywh": torch.zeros(
                     batched_buffer_size,
                     4,
                     dtype=torch.float32,
                     device="cpu",
-                    pin_memory=True,
+                    pin_memory=pin,
                 ),
                 "out_binary_masks": torch.zeros(
                     batched_buffer_size,
@@ -1127,7 +1131,7 @@ class Sam3MultiplexTracking(Sam3MultiplexBase):
                     W_video,
                     dtype=bool,
                     device="cpu",
-                    pin_memory=True,
+                    pin_memory=pin,
                 ),
             }
             if self.running_in_prod:
@@ -1136,7 +1140,7 @@ class Sam3MultiplexTracking(Sam3MultiplexBase):
                     2,
                     dtype=torch.float32,
                     device="cpu",
-                    pin_memory=True,
+                    pin_memory=pin,
                 )
 
         self.buffer_cpu_batched["out_obj_ids"][:total_objects].copy_(final_obj_ids)

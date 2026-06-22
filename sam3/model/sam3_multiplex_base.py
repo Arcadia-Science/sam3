@@ -2235,11 +2235,14 @@ class Sam3MultiplexBase(Sam3VideoBase):
         )
 
         # Suppress if: keep_alive <= 0 AND not hotstart-only mode AND not removed
+        from sam3.utils.device import to_device
+
         suppress_by_unmatch = (
             (trk_keep_alive <= 0)
-            & torch.tensor(not self.suppress_unmatched_only_within_hotstart)
-            .pin_memory()
-            .to(device=device, non_blocking=True)
+            & to_device(
+                torch.tensor(not self.suppress_unmatched_only_within_hotstart),
+                device,
+            )
             & ~removed_mask
             & ~remove_by_unmatch
         )
@@ -2501,10 +2504,11 @@ class Sam3MultiplexBase(Sam3VideoBase):
                 continue
             # Get the local high-res masks and object score logits for this inference state
             if self.is_multiplex and self.tracker.is_multiplex_dynamic:
-                local_idx = (
-                    torch.tensor(object_idx_assignment[state_i])
-                    .pin_memory()
-                    .to(device=high_res_masks.device, non_blocking=True)
+                from sam3.utils.device import to_device
+
+                local_idx = to_device(
+                    torch.tensor(object_idx_assignment[state_i]),
+                    high_res_masks.device,
                 )
                 local_high_res_masks = high_res_masks[local_idx]
                 local_object_score_logits = object_score_logits[local_idx]
