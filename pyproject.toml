@@ -35,6 +35,11 @@ dependencies = [
     "huggingface_hub",
     "torch==2.10.0",
     "torchvision>=0.25.0",
+    "einops",
+    "scipy",
+    "psutil",
+    "setuptools<81",
+    "scikit-image",
 ]
 
 [project.optional-dependencies]
