@@ -11,10 +11,14 @@ import torch.nn.functional as F
 import torchmetrics
 from sam3.model import box_ops
 from sam3.model.data_misc import interpolate
-from sam3.train.loss.sigmoid_focal_loss import (
-    triton_sigmoid_focal_loss,
-    triton_sigmoid_focal_loss_reduce,
-)
+try:
+    from sam3.train.loss.sigmoid_focal_loss import (
+        triton_sigmoid_focal_loss,
+        triton_sigmoid_focal_loss_reduce,
+    )
+except ImportError:
+    triton_sigmoid_focal_loss = None
+    triton_sigmoid_focal_loss_reduce = None
 from torch import nn
 
 from .mask_sampling import (

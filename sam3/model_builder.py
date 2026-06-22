@@ -10,6 +10,7 @@ import torch
 import torch.nn as nn
 from huggingface_hub import hf_hub_download
 from iopath.common.file_io import g_pathmgr
+from sam3.utils.device import get_device
 from sam3.model.decoder import (
     DecoupledTransformerDecoderLayerv2,
     SimpleRoPEAttention,
@@ -563,8 +564,7 @@ def _load_checkpoint(model, checkpoint_path):
 
 def _setup_device_and_mode(model, device, eval_mode):
     """Setup model device and evaluation mode."""
-    if device == "cuda":
-        model = model.cuda()
+    model = model.to(device)
     if eval_mode:
         model.eval()
     return model
@@ -572,7 +572,7 @@ def _setup_device_and_mode(model, device, eval_mode):
 
 def build_sam3_image_model(
     bpe_path=None,
-    device="cuda" if torch.cuda.is_available() else "cpu",
+    device=None,
     eval_mode=True,
     checkpoint_path=None,
     load_from_HF=True,
@@ -585,7 +585,7 @@ def build_sam3_image_model(
 
     Args:
         bpe_path: Path to the BPE tokenizer vocabulary
-        device: Device to load the model on ('cuda' or 'cpu')
+        device: Device to load the model on ('cuda', 'mps', 'cpu', or None for auto)
         eval_mode: Whether to set the model to evaluation mode
         checkpoint_path: Optional path to model checkpoint
         enable_segmentation: Whether to enable segmentation head
@@ -595,6 +595,8 @@ def build_sam3_image_model(
     Returns:
         A SAM3 image model
     """
+    if device is None:
+        device = get_device()
     if bpe_path is None:
         bpe_path = pkg_resources.resource_filename(
             "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
@@ -681,7 +683,7 @@ def build_sam3_video_model(
     geo_encoder_use_img_cross_attn: bool = True,
     strict_state_dict_loading: bool = True,
     apply_temporal_disambiguation: bool = True,
-    device="cuda" if torch.cuda.is_available() else "cpu",
+    device=None,
     compile=False,
 ) -> Sam3VideoInferenceWithInstanceInteractivity:
     """
@@ -690,10 +692,13 @@ def build_sam3_video_model(
     Args:
         checkpoint_path: Optional path to checkpoint file
         bpe_path: Path to the BPE tokenizer file
+        device: Device to load the model on (None for auto-detect)
 
     Returns:
         Sam3VideoInferenceWithInstanceInteractivity: The instantiated dense tracking model
     """
+    if device is None:
+        device = get_device()
     if bpe_path is None:
         bpe_path = pkg_resources.resource_filename(
             "sam3", "assets/bpe_simple_vocab_16e6.txt.gz"
@@ -941,7 +946,7 @@ def build_sam3_multiplex_video_model(
     use_fa3: bool = False,
     use_rope_real: bool = False,
     strict_state_dict_loading: bool = True,
-    device="cuda" if torch.cuda.is_available() else "cpu",
+    device=None,
     compile=False,
 ):
     """
@@ -953,12 +958,14 @@ def build_sam3_multiplex_video_model(
         use_fa3: Whether to use FlashAttention 3
         use_rope_real: Whether to use real-valued RoPE (for compile compat)
         strict_state_dict_loading: Whether to use strict state dict loading
-        device: Device to place model on
+        device: Device to place model on (None for auto-detect)
         compile: Whether to compile model components
 
     Returns:
         VideoTrackingDynamicMultiplex: The instantiated multiplex tracking model
     """
+    if device is None:
+        device = get_device()
     # Build multiplex-specific components
     maskmem_backbone = _create_multiplex_maskmem_backbone(
         multiplex_count=multiplex_count
@@ -1227,7 +1234,7 @@ def build_sam3_multiplex_video_predictor(
                 f"Unexpected keys ({len(unexpected_keys)}): {unexpected_keys[:10]}..."
             )
 
-    demo_model.cuda().eval()
+    demo_model.to(get_device()).eval()
 
     # Wrap in predictor
     predictor = Sam3MultiplexVideoPredictor(

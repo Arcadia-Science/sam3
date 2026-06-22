@@ -5,9 +5,14 @@
 """Triton kernel for faster and memory efficient sigmoid focal loss"""
 
 import torch
-import triton
-import triton.language as tl
-from torch._inductor.runtime.triton_helpers import libdevice
+
+try:
+    import triton
+    import triton.language as tl
+    from torch._inductor.runtime.triton_helpers import libdevice
+    HAS_TRITON = True
+except ImportError:
+    HAS_TRITON = False
 
 """
 
@@ -32,6 +37,12 @@ We settle for a version that abuses triton's atomic_add: we can have all threads
 In practice, this is not good, since it creates a massive bottleneck on the semaphore for that single memory location. So instead, we create M reduction locations. Each thread will simply write to thread_id%M. The python code can finally sum over the M reductions.
 M = 32 works fine in benchmarking tests. The forward is a tiny bit slower compared to the non-reduced kernel, but the backward breaks even due to one less memory allocation.
 """
+
+if not HAS_TRITON:
+    raise ImportError(
+        "triton is required for sigmoid_focal_loss kernels but is not installed. "
+        "This is expected on macOS. Training loss will use the PyTorch fallback."
+    )
 
 
 @triton.jit

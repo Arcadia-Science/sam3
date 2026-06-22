@@ -40,6 +40,7 @@ class Sam3VideoPredictor(Sam3BasePredictor):
         self.video_loader_type = video_loader_type
         from sam3.model_builder import build_sam3_video_model
 
+        from sam3.utils.device import get_device
         self.model = (
             build_sam3_video_model(
                 checkpoint_path=checkpoint_path,
@@ -50,7 +51,7 @@ class Sam3VideoPredictor(Sam3BasePredictor):
                 apply_temporal_disambiguation=apply_temporal_disambiguation,
                 compile=compile,
             )
-            .cuda()
+            .to(get_device())
             .eval()
         )
 
@@ -238,7 +239,7 @@ class Sam3VideoPredictorMultiGPU(Sam3VideoPredictor):
             device_id=self.device,
         )
         # warm-up the NCCL process group by running a dummy all-reduce
-        tensor = torch.ones(1024, 1024).cuda()
+        tensor = torch.ones(1024, 1024).to(self.device)
         torch.distributed.all_reduce(tensor)
         logger.debug(f"started NCCL process group on {rank=} with {world_size=}")
 

@@ -8,7 +8,7 @@ Inspired from Pytorch's version, adds the pre-norm variant
 
 import math
 from functools import partial
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional, Union
 
 import numpy as np
 import torch
@@ -73,7 +73,8 @@ class TransformerDecoderLayer(nn.Module):
         return tensor if pos is None else tensor + pos
 
     def forward_ffn(self, tgt):
-        with torch.amp.autocast(device_type="cuda", enabled=False):
+        _ac_device = tgt.device.type if tgt.device.type in ("cuda", "cpu") else "cpu"
+        with torch.amp.autocast(device_type=_ac_device, enabled=False):
             tgt2 = self.linear2(self.dropout3(self.activation(self.linear1(tgt))))
         tgt = tgt + self.dropout4(tgt2)
         tgt = self.norm3(tgt)
@@ -278,9 +279,11 @@ class TransformerDecoder(nn.Module):
             self.coord_cache = {}
 
             if resolution is not None and stride is not None:
+                from sam3.utils.device import get_device
+
                 feat_size = resolution // stride
                 coords_h, coords_w = self._get_coords(
-                    feat_size, feat_size, device="cuda"
+                    feat_size, feat_size, device=get_device()
                 )
                 self.compilable_cord_cache = (coords_h, coords_w)
                 self.compilable_stored_size = (feat_size, feat_size)
@@ -1045,9 +1048,16 @@ class SimpleRoPEAttention(nn.Module):
         self.compute_cis = partial(
             compute_axial_cis, dim=d_model // num_heads, theta=rope_theta
         )
-        device = torch.device("cuda") if torch.cuda.is_available() else None
+        from sam3.utils.device import get_device
+
+        _init_device = (
+            get_device()
+            if torch.cuda.is_available()
+            or (hasattr(torch.backends, "mps") and torch.backends.mps.is_available())
+            else None
+        )
         self.freqs_cis = self.compute_cis(
-            end_x=feat_sizes[0], end_y=feat_sizes[1], device=device
+            end_x=feat_sizes[0], end_y=feat_sizes[1], device=_init_device
         )
 
         self.use_fa3 = use_fa3

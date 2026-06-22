@@ -797,7 +797,6 @@ class Sam3VideoInference(Sam3VideoBase):
         return inference_state
 
     @torch.inference_mode()
-    @torch.autocast(device_type="cuda", dtype=torch.bfloat16)
     def warm_up_compilation(self):
         """
         Warm up the model by running a dummy inference to compile the model. This is
@@ -807,9 +806,10 @@ class Sam3VideoInference(Sam3VideoBase):
             return
         self._warm_up_complete = False
         if self.device.type != "cuda":
-            raise RuntimeError(
-                f"The model must be on CUDA for warm-up compilation, got {self.device=}."
+            logger.warning(
+                "Warm-up compilation requires CUDA. Skipping on %s.", self.device
             )
+            return
 
         # temporally set to single GPU temporarily for warm-up compilation
         orig_rank = self.rank
@@ -905,9 +905,13 @@ class Sam3VideoInference(Sam3VideoBase):
         )
         return frame_idx, self._postprocess_output(inference_state, out)
 
-    @torch.autocast(device_type="cuda", dtype=torch.bfloat16)
     def forward(self, input: BatchedDatapoint, is_inference: bool = False):
         """This method is only used for benchmark eval (not used in the demo)."""
+        from sam3.utils.device import autocast_context
+        with autocast_context(self.device, dtype=torch.bfloat16):
+            return self._forward_impl(input, is_inference)
+
+    def _forward_impl(self, input: BatchedDatapoint, is_inference: bool = False):
         # set the model to single GPU for benchmark evaluation (to be compatible with trainer)
         orig_rank = self.rank
         orig_world_size = self.world_size

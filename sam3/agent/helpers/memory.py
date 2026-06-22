@@ -59,7 +59,7 @@ def retry_if_cuda_oom(func):
 
     def maybe_to_cpu(x):
         try:
-            like_gpu_tensor = x.device.type == "cuda" and hasattr(x, "to")
+            like_gpu_tensor = x.device.type in ("cuda", "mps") and hasattr(x, "to")
         except AttributeError:
             like_gpu_tensor = False
         if like_gpu_tensor:
@@ -73,7 +73,8 @@ def retry_if_cuda_oom(func):
             return func(*args, **kwargs)
 
         # Clear cache and retry
-        torch.cuda.empty_cache()
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
         with _ignore_torch_cuda_oom():
             return func(*args, **kwargs)
 

@@ -95,11 +95,11 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
         # the original video height and width, used for resizing final output scores
         inference_state["video_height"] = video_height
         inference_state["video_width"] = video_width
-        inference_state["device"] = torch.device("cuda")
+        inference_state["device"] = self.device
         if offload_state_to_cpu:
             inference_state["storage_device"] = torch.device("cpu")
         else:
-            inference_state["storage_device"] = torch.device("cuda")
+            inference_state["storage_device"] = self.device
         # inputs on each frame
         inference_state["point_inputs_per_obj"] = {}
         inference_state["mask_inputs_per_obj"] = {}
@@ -1417,8 +1417,8 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
                     )
 
                 if prev_out is not None and prev_out["pred_masks"] is not None:
-                    prev_sam_mask_logits_singleton = prev_out["pred_masks"].cuda(
-                        non_blocking=True
+                    prev_sam_mask_logits_singleton = prev_out["pred_masks"].to(
+                        self.device, non_blocking=True
                     )
                     prev_sam_mask_logits_singleton = torch.clamp(
                         prev_sam_mask_logits_singleton, -32.0, 32.0
@@ -2634,7 +2634,7 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
         )
         if backbone_out is None:
             # Cache miss -- we will run inference on a single image
-            image = inference_state["images"][frame_idx].cuda().float().unsqueeze(0)
+            image = inference_state["images"][frame_idx].to(self.device).float().unsqueeze(0)
             # TODO: We should optimize this because we don't always need all three outs
             backbone_out = self.forward_image(
                 NestedTensor(tensors=image, mask=None),
@@ -3199,7 +3199,6 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
                 obj_output_dict["non_cond_frame_outputs"].pop(t, None)
 
     @torch.inference_mode()
-    @torch.autocast(device_type="cuda", dtype=torch.bfloat16)
     def warm_up_compilation(
         self, offload_video_to_cpu=False, offload_state_to_cpu=False
     ):
@@ -3207,12 +3206,13 @@ class VideoTrackingMultiplexDemo(VideoTrackingDynamicMultiplex):
         Warm up the model by running a dummy inference to compile the model. This is
         useful to avoid the compilation overhead in the first inference call.
         """
-        if not self.compile_all_components:
-            return
+        with torch.autocast(device_type=self.device.type, dtype=torch.bfloat16):
+            if not self.compile_all_components:
+                return
 
-        raise NotImplementedError(
-            "Please use `VideoTrackingMultiplexDemoPerBucketInference` instead for full model compilation."
-        )
+            raise NotImplementedError(
+                "Please use `VideoTrackingMultiplexDemoPerBucketInference` instead for full model compilation."
+            )
 
 
 class Sam3VideoTrackingMultiplexDemo(VideoTrackingMultiplexDemo):
@@ -3248,11 +3248,11 @@ class Sam3VideoTrackingMultiplexDemo(VideoTrackingMultiplexDemo):
         # the original video height and width, used for resizing final output scores
         inference_state["video_height"] = video_height
         inference_state["video_width"] = video_width
-        inference_state["device"] = torch.device("cuda")
+        inference_state["device"] = self.device
         if offload_state_to_cpu:
             inference_state["storage_device"] = torch.device("cpu")
         else:
-            inference_state["storage_device"] = torch.device("cuda")
+            inference_state["storage_device"] = self.device
         # inputs on each frame
         inference_state["point_inputs_per_obj"] = {}
         inference_state["mask_inputs_per_obj"] = {}

@@ -52,7 +52,7 @@ def clone_output_wrapper(f):
     def wrapped(*args, **kwargs):
         outputs = f(*args, **kwargs)
         return tree_map_only(
-            torch.Tensor, lambda t: t.clone() if t.is_cuda else t, outputs
+            torch.Tensor, lambda t: t.clone() if t.device.type in ("cuda", "mps") else t, outputs
         )
 
     return wrapped

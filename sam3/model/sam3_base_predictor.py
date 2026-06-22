@@ -202,7 +202,8 @@ class Sam3BasePredictor:
         valid_params = set(sig.parameters.keys())
         filtered_kwargs = {k: v for k, v in kwargs.items() if k in valid_params}
 
-        with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
+        from sam3.utils.device import autocast_context
+        with autocast_context(self.model.device, dtype=torch.bfloat16):
             frame_idx, outputs = self.model.add_prompt(**filtered_kwargs)
         return {"frame_index": frame_idx, "outputs": outputs}
 
