@@ -337,7 +337,10 @@ class TransformerDecoder(nn.Module):
         H, W = feat_size
         boxes_xyxy = box_cxcywh_to_xyxy(reference_boxes).transpose(0, 1)
         bs, num_queries, _ = boxes_xyxy.shape
-        if self.compilable_cord_cache is None:
+        if (
+            self.compilable_cord_cache is None
+            or self.compilable_cord_cache[0].device != reference_boxes.device
+        ):
             self.compilable_cord_cache = self._get_coords(H, W, reference_boxes.device)
             self.compilable_stored_size = (H, W)
 
@@ -350,7 +353,10 @@ class TransformerDecoder(nn.Module):
         else:
             # cache miss, will create compilation issue
             # In case we're not compiling, we'll still rely on the dict-based cache
-            if feat_size not in self.coord_cache:
+            if (
+                feat_size not in self.coord_cache
+                or self.coord_cache[feat_size][0].device != reference_boxes.device
+            ):
                 self.coord_cache[feat_size] = self._get_coords(
                     H, W, reference_boxes.device
                 )
